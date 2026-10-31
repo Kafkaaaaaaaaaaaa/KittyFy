@@ -404,18 +404,31 @@ $('searchForm').onsubmit = async (e) => {
 };
 
 // ---- upload ----
+const AUDIO_RE = /\.(mp3|m4a|aac|wav|ogg|opus|flac|webm)$/i;
 async function uploadFiles(files) {
-  const list = [...files].filter((f) => /\.(mp3|m4a|aac|wav|ogg|opus|flac|webm)$/i.test(f.name));
-  if (!list.length) return toast('Please choose audio files');
-  for (const f of list) {
-    if (f.size > 60 * 1024 * 1024) { toast(f.name + ' is over 60 MB'); continue; }
+  const all = [...files];
+  if (!all.length) { $('status').textContent = 'No file was selected.'; return; }
+  const problems = [];
+  let added = 0;
+  for (const f of all) {
+    if (!AUDIO_RE.test(f.name)) { problems.push(`${f.name}: not supported (use mp3, m4a, aac, wav, ogg, opus, flac)`); continue; }
+    if (f.size > 60 * 1024 * 1024) { problems.push(`${f.name}: over 60 MB`); continue; }
     $('status').textContent = `Uploading ${f.name}…`;
     try {
       const r = await fetch(`/api/upload?room=${room}&name=${encodeURIComponent(f.name)}&by=${encodeURIComponent(myName)}`, { method: 'POST', body: f, headers: { 'Content-Type': 'application/octet-stream' } });
-      if (!r.ok) throw new Error((await r.json()).error || 'failed');
-    } catch (err) { toast('Upload failed: ' + err.message); }
+      if (!r.ok) {
+        let why = 'server said HTTP ' + r.status;
+        try { why = (await r.json()).error || why; } catch {}
+        if (r.status === 404) why = 'this room no longer exists (the server restarted). Go back and start a new room';
+        if (r.status === 413) why = 'file is too big for the server (max 60 MB)';
+        problems.push(`${f.name}: ${why}`);
+      } else added++;
+    } catch (err) { problems.push(`${f.name}: could not reach the server (${err.message})`); }
   }
-  $('status').textContent = '';
+  const st = $('status');
+  st.textContent = problems.length ? 'Upload problem: ' + problems.join(' | ') : (added ? '' : '');
+  st.style.color = problems.length ? 'var(--accent)' : '';
+  if (added && !problems.length) toast(added === 1 ? 'Song added' : added + ' songs added');
 }
 $('file').onchange = (e) => { uploadFiles(e.target.files); e.target.value = ''; };
 const drop = $('drop');

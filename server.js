@@ -220,6 +220,14 @@ wss.on('connection', (ws, req) => {
   });
 });
 
+// Send errors (for example a file that is too big) back as JSON the page can show
+app.use((err, req, res, next) => {
+  console.error('Request error:', req.method, req.path, err.type || err.message);
+  if (res.headersSent) return next(err);
+  const tooBig = err.type === 'entity.too.large';
+  res.status(tooBig ? 413 : err.status || 500).json({ error: tooBig ? 'file too big (max 60 MB)' : 'server error' });
+});
+
 // Delete rooms that have been empty for an hour
 setInterval(() => {
   for (const [code, r] of rooms) {
