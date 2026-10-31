@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Duet — listen together</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e0e12">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Duet">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+  :root {
+    --bg: #0e0e12; --panel: #17171d; --panel2: #1f1f27; --text: #f2f2f5; --muted: #9a9aa8;
+    --accent: #ff4d6d; --accent2: #ff8a5c; --line: #2a2a34;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
+  .hidden { display: none !important; }
+
+  /* Join screen */
+  #join { min-height: 100%; display: grid; place-items: center; padding: 24px; }
+  .card { width: 100%; max-width: 400px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 20px; padding: 32px 28px; text-align: center; }
+  .logo { font-size: 34px; font-weight: 800; letter-spacing: -1px;
+    background: linear-gradient(120deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .tag { color: var(--muted); margin: 6px 0 26px; }
+  input[type=text] { width: 100%; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--panel2); color: var(--text); font-size: 16px; margin-bottom: 12px; outline: none; }
+  input[type=text]:focus { border-color: var(--accent); }
+  .btn { width: 100%; padding: 14px; border-radius: 999px; font-weight: 700; font-size: 16px;
+    background: linear-gradient(120deg, var(--accent), var(--accent2)); color: #fff; }
+  .btn.ghost { background: var(--panel2); border: 1px solid var(--line); margin-top: 10px; }
+  .or { color: var(--muted); font-size: 13px; margin: 18px 0 10px; }
+
+  /* App */
+  #app { height: 100%; display: grid; grid-template-rows: auto 1fr auto; max-width: 900px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  header .logo { font-size: 22px; }
+  .room { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+  .pill { background: var(--panel2); border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px; color: var(--text); font-weight: 700; letter-spacing: 2px; }
+  .live { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: #3ddc84; }
+  .dot.off { background: #888; }
+
+  main { overflow-y: auto; padding: 18px; }
+  .drop { border: 2px dashed var(--line); border-radius: 16px; padding: 18px; text-align: center; color: var(--muted); margin-bottom: 16px; transition: .15s; }
+  .drop.over { border-color: var(--accent); color: var(--text); background: var(--panel); }
+  .drop b { color: var(--text); }
+  .drop .add { display: inline-block; margin-top: 8px; padding: 9px 18px; background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; font-weight: 600; color: var(--text); }
+  #status { margin-top: 8px; font-size: 13px; }
+
+  .search { margin-bottom: 16px; }
+  #searchForm { display: flex; gap: 10px; }
+  #searchForm input { margin: 0; flex: 1; }
+  .msg { margin-top: 10px; padding: 12px 14px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .msg code { color: var(--text); background: var(--panel2); padding: 1px 6px; border-radius: 6px; }
+  #results { margin-top: 8px; max-height: 280px; overflow-y: auto; }
+  li.res { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; padding: 8px 10px; border-radius: 12px; }
+  li.res:hover { background: var(--panel); }
+  li.res img { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: var(--panel2); }
+  li.res .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  li.res .by { color: var(--muted); font-size: 13px; font-weight: 400; }
+  li.res button { padding: 7px 14px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--line); font-weight: 600; font-size: 13px; }
+  li.res button:hover { border-color: var(--accent); }
+  li.res button:disabled { opacity: .5; cursor: default; }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li.track { display: grid; grid-template-columns: 32px 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; cursor: pointer; }
+  li.track:hover { background: var(--panel); }
+  li.track.active { background: var(--panel2); }
+  li.track .n { color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; }
+  li.track.active .n { color: var(--accent); }
+  li.track .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+  li.track .by { color: var(--muted); font-size: 13px; font-weight: 400; }
+  li.track .x { color: var(--muted); padding: 4px 8px; border-radius: 8px; opacity: 0; }
+  li.track:hover .x { opacity: 1; }
+  li.track .x:hover { color: var(--accent); }
+  .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+
+  /* Player bar */
+  footer { background: var(--panel); border-top: 1px solid var(--line); padding: 14px 18px calc(18px + env(safe-area-inset-bottom)); }
+  header { padding-top: calc(14px + env(safe-area-inset-top)); }
+  .np { text-align: center; font-weight: 700; min-height: 22px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar { display: grid; grid-template-columns: 44px 1fr 44px; gap: 10px; align-items: center; margin: 10px 0 6px; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .bar span:last-child { text-align: right; }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 5px; border-radius: 3px; background: var(--line); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: #fff; }
+  input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: #fff; }
+  .ctrl { display: flex; justify-content: center; align-items: center; gap: 22px; }
+  .ctrl button { font-size: 22px; width: 44px; height: 44px; border-radius: 50%; }
+  .ctrl button:hover { background: var(--panel2); }
+  .ctrl .play { width: 56px; height: 56px; font-size: 24px; background: #fff; color: #111; }
+  .ctrl .play:hover { background: #fff; transform: scale(1.06); }
+  .vol { display: flex; align-items: center; gap: 8px; justify-content: center; margin-top: 8px; color: var(--muted); font-size: 14px; }
+  .vol input { width: 120px; }
+  #unlock { position: fixed; inset: 0; background: rgba(0,0,0,.7); display: grid; place-items: center; z-index: 10; }
+  #unlock .card { max-width: 320px; }
+  #toast { position: fixed; left: 50%; bottom: 150px; transform: translateX(-50%); background: var(--panel2); border: 1px solid var(--line); padding: 10px 16px; border-radius: 999px; font-size: 14px; opacity: 0; pointer-events: none; transition: .2s; }
+  #toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<section id="join">
+  <div class="card">
+    <div class="logo">Duet</div>
+    <p class="tag">Listen to the same song at the same time, from anywhere.</p>
+    <input id="name" type="text" placeholder="Your name" maxlength="30" autocomplete="off">
+    <button class="btn" id="create">Start a new room</button>
+    <div class="or">or join your friend</div>
+    <input id="code" type="text" placeholder="Room code" maxlength="8" autocomplete="off" style="text-transform:uppercase;letter-spacing:3px;text-align:center">
+    <button class="btn ghost" id="joinBtn">Join room</button>
+  </div>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <div class="logo">Duet</div>
+    <div class="room">
+      <span class="live"><span class="dot" id="dot"></span><span id="listeners">1 listening</span></span>
+      <span class="pill" id="roomCode">-----</span>
+      <button class="pill" id="copy" style="letter-spacing:0">Copy link</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="search">
+      <form id="searchForm">
+        <input id="q" type="text" placeholder="Search free music (artist, song, mood)…" autocomplete="off">
+        <button class="btn" style="width:auto;padding:12px 20px" type="submit">Search</button>
+      </form>
+      <div id="searchMsg" class="msg hidden"></div>
+      <ul id="results"></ul>
+    </div>
+    <div class="drop" id="drop">
+      <div><b>Add songs</b> for both of you to hear</div>
+      <div>Drop audio files here (mp3, m4a, wav, ogg, flac)</div>
+      <label class="add">Choose files<input id="file" type="file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac" multiple hidden></label>
+      <div id="status"></div>
+    </div>
+    <ul id="list"></ul>
+    <div class="empty hidden" id="empty">No songs yet. Add a few and press play.</div>
+  </main>
+
+  <footer>
+    <div class="np" id="np">Nothing playing</div>
+    <div class="bar"><span id="cur">0:00</span><input type="range" id="seek" min="0" max="1000" value="0"><span id="dur">0:00</span></div>
+    <div class="ctrl">
+      <button id="prev" title="Previous">⏮</button>
+      <button class="play" id="play" title="Play / pause">▶</button>
+      <button id="next" title="Next">⏭</button>
+    </div>
+    <div class="vol">🔈 <input type="range" id="vol" min="0" max="100" value="80"> <span style="font-size:12px">volume is only yours</span></div>
+  </footer>
+</section>
+
+<div id="unlock" class="hidden">
+  <div class="card">
+    <p style="margin-top:0">Your friend is already listening.</p>
+    <button class="btn" id="unlockBtn">Tap to join the music</button>
+  </div>
+</div>
+<div id="toast"></div>
+<audio id="audio" preload="auto"></audio>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const audio = $('audio');
+let ws, room = null, state = null, offset = 0, myName = '';
+let seeking = false, loadedId = null, retry = 0;
+
+const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+const toast = (m) => { const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 2500); };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const send = (o) => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+const serverNow = () => Date.now() + offset;
+
+// ---- join flow ----
+$('name').value = localStorage.getItem('duet-name') || '';
+const hashCode = location.hash.replace('#', '').toUpperCase();
+if (hashCode) $('code').value = hashCode;
+
+async function enter(code) {
+  myName = $('name').value.trim() || 'Guest';
+  localStorage.setItem('duet-name', myName);
+  room = code.toUpperCase();
+  history.replaceState(null, '', '#' + room);
+  $('join').classList.add('hidden');
+  $('app').classList.remove('hidden');
+  $('roomCode').textContent = room;
+  connect();
+}
+$('create').onclick = async () => {
+  const r = await fetch('/api/room', { method: 'POST' }).then((r) => r.json());
+  enter(r.code);
+};
+$('joinBtn').onclick = () => { const c = $('code').value.trim(); if (c) enter(c); else toast('Enter a room code'); };
+$('code').addEventListener('keydown', (e) => e.key === 'Enter' && $('joinBtn').click());
+$('copy').onclick = async () => {
+  try { await navigator.clipboard.writeText(location.href); toast('Link copied. Send it to your friend!'); }
+  catch { toast('Copy the address bar link'); }
+};
+
+// ---- websocket ----
+function connect() {
+  if (ws && ws.readyState <= 1) return; // already connected or connecting
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}/ws?room=${room}`);
+  ws.onopen = () => { retry = 0; $('dot').classList.remove('off'); pingBurst(); };
+  ws.onclose = (e) => {
+    $('dot').classList.add('off');
+    if (e.code === 4004) { toast('Room not found'); setTimeout(() => { location.hash = ''; location.reload(); }, 1200); return; }
+    setTimeout(connect, Math.min(5000, 500 * ++retry));
+  };
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.t === 'pong') {
+      const rtt = Date.now() - m.c;
+      const est = m.s + rtt / 2 - Date.now();
+      // keep the estimate from the lowest-latency sample
+      if (!pong.best || rtt < pong.best) { pong.best = rtt; offset = est; }
+    } else if (m.t === 'state') {
+      state = m; applyState();
+    }
+  };
+}
+const pong = {};
+function pingBurst() { pong.best = null; for (let i = 0; i < 6; i++) setTimeout(() => send({ t: 'ping', c: Date.now() }), i * 250); }
+setInterval(() => ws && ws.readyState === 1 && send({ t: 'ping', c: Date.now() }), 20000);
+
+// ---- applying shared state ----
+function expectedPos() {
+  if (!state) return 0;
+  return state.playing ? state.pos + (serverNow() - state.serverTime) / 1000 : state.pos;
+}
+
+async function applyState() {
+  renderList();
+  $('listeners').textContent = state.listeners + (state.listeners === 1 ? ' listening' : ' listening');
+  const tr = state.tracks[state.index];
+  $('np').textContent = tr ? tr.name : 'Nothing playing';
+  $('play').textContent = state.playing ? '⏸' : '▶';
+  updateMediaSession(tr);
+  warmNext();
+  if (!tr) { audio.pause(); audio.removeAttribute('src'); loadedId = null; audio.load(); return; }
+
+  if (loadedId !== tr.id) {
+    loadedId = tr.id;
+    audio.src = tr.url || `/audio/${room}/${tr.id}`;
+    audio.load();
+    await new Promise((res) => { audio.addEventListener('loadedmetadata', res, { once: true }); setTimeout(res, 4000); });
+  }
+  const target = expectedPos();
+  if (Math.abs(audio.currentTime - target) > 0.3) audio.currentTime = target;
+  if (state.playing) {
+    try { await audio.play(); $('unlock').classList.add('hidden'); }
+    catch { $('unlock').classList.remove('hidden'); }
+  } else {
+    audio.pause();
+  }
+}
+$('unlockBtn').onclick = () => { $('unlock').classList.add('hidden'); applyState(); };
+
+// Drift correction while playing
+setInterval(() => {
+  if (!state || !state.playing || audio.paused || audio.seeking) return;
+  const drift = audio.currentTime - expectedPos();
+  if (Math.abs(drift) > 0.5) audio.currentTime = expectedPos();
+}, 2000);
+
+audio.addEventListener('ended', () => send({ t: 'ended', index: state ? state.index : -1 }));
+audio.addEventListener('timeupdate', () => {
+  $('cur').textContent = fmt(audio.currentTime);
+  if (!seeking && audio.duration) $('seek').value = (audio.currentTime / audio.duration) * 1000;
+});
+audio.addEventListener('loadedmetadata', () => { $('dur').textContent = fmt(audio.duration); });
+
+// ---- phone behaviour: lock-screen controls, background, wake-up resync ----
+function updateMediaSession(tr) {
+  if (!('mediaSession' in navigator)) return;
+  navigator.mediaSession.playbackState = state && state.playing ? 'playing' : 'paused';
+  if (!tr) { navigator.mediaSession.metadata = null; return; }
+  const parts = tr.name.split(' — ');
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: parts[0], artist: parts[1] || 'Duet', album: 'Room ' + room,
+    artwork: [{ src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' }],
+  });
+}
+if ('mediaSession' in navigator) {
+  const ms = navigator.mediaSession;
+  const set = (a, f) => { try { ms.setActionHandler(a, f); } catch {} };
+  set('play', () => state && state.index >= 0 && send({ t: 'play', pos: audio.currentTime }));
+  set('pause', () => send({ t: 'pause', pos: audio.currentTime }));
+  set('nexttrack', () => send({ t: 'next' }));
+  set('previoustrack', () => send({ t: 'prev' }));
+  set('seekto', (d) => send({ t: 'seek', pos: d.seekTime }));
+  set('seekforward', () => send({ t: 'seek', pos: audio.currentTime + 10 }));
+  set('seekbackward', () => send({ t: 'seek', pos: Math.max(0, audio.currentTime - 10) }));
+}
+let lastPosUpdate = 0;
+audio.addEventListener('timeupdate', () => {
+  if (!('mediaSession' in navigator) || Date.now() - lastPosUpdate < 1000 || !isFinite(audio.duration)) return;
+  lastPosUpdate = Date.now();
+  try { navigator.mediaSession.setPositionState({ duration: audio.duration, position: Math.min(audio.currentTime, audio.duration), playbackRate: 1 }); } catch {}
+});
+
+// Load the next song quietly so the switch is instant
+const warm = new Audio(); warm.preload = 'auto';
+function warmNext() {
+  const n = state && state.tracks[state.index + 1];
+  if (!n) return;
+  const src = n.url || `/audio/${room}/${n.id}`;
+  if (warm.dataset.src !== src) { warm.dataset.src = src; warm.src = src; }
+}
+
+// Phones freeze tabs in the background: catch up as soon as we are back
+function wake() {
+  if (!room) return;
+  if (!ws || ws.readyState > 1) connect();
+  else { pingBurst(); if (state) applyState(); }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) wake(); });
+window.addEventListener('online', wake);
+window.addEventListener('pageshow', wake);
+
+// Installable app
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+// ---- controls ----
+$('play').onclick = () => {
+  if (!state || state.index < 0) return toast('Add a song first');
+  send({ t: state.playing ? 'pause' : 'play', pos: audio.currentTime });
+};
+$('next').onclick = () => send({ t: 'next' });
+$('prev').onclick = () => send({ t: 'prev' });
+$('seek').addEventListener('input', () => { seeking = true; if (audio.duration) $('cur').textContent = fmt(($('seek').value / 1000) * audio.duration); });
+$('seek').addEventListener('change', () => {
+  seeking = false;
+  if (audio.duration) send({ t: 'seek', pos: ($('seek').value / 1000) * audio.duration });
+});
+$('vol').addEventListener('input', () => { audio.volume = $('vol').value / 100; localStorage.setItem('duet-vol', $('vol').value); });
+$('vol').value = localStorage.getItem('duet-vol') || 80; audio.volume = $('vol').value / 100;
+
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { e.preventDefault(); $('play').click(); }
+  if (e.code === 'ArrowRight') $('next').click();
+  if (e.code === 'ArrowLeft') $('prev').click();
+});
+
+// ---- list ----
+function renderList() {
+  const ul = $('list');
+  ul.innerHTML = '';
+  $('empty').classList.toggle('hidden', state.tracks.length > 0);
+  state.tracks.forEach((t, i) => {
+    const li = document.createElement('li');
+    li.className = 'track' + (i === state.index ? ' active' : '');
+    li.innerHTML = `<span class="n">${i === state.index && state.playing ? '♪' : i + 1}</span>
+      <span class="t">${esc(t.name)}<div class="by">${t.by ? 'added by ' + esc(t.by) : ''}</div></span>
+      <button class="x" title="Remove">✕</button>`;
+    li.onclick = () => send({ t: 'select', index: i });
+    li.querySelector('.x').onclick = (e) => { e.stopPropagation(); send({ t: 'remove', id: t.id }); };
+    ul.appendChild(li);
+  });
+}
+
+// ---- free music search (Jamendo) ----
+$('searchForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const q = $('q').value.trim();
+  const msg = $('searchMsg'), ul = $('results');
+  if (!q) return;
+  ul.innerHTML = ''; msg.classList.remove('hidden'); msg.textContent = 'Searching…';
+  try {
+    const r = await fetch('/api/search?q=' + encodeURIComponent(q));
+    const d = await r.json();
+    if (d.error === 'no_key') {
+      msg.innerHTML = 'Music search needs a free Jamendo key. Get one at <b>devportal.jamendo.com</b>, then start the server with <code>JAMENDO_CLIENT_ID=your_key npm start</code>. Uploading your own files still works.';
+      return;
+    }
+    if (!r.ok) throw new Error();
+    if (!d.results.length) { msg.textContent = 'Nothing found. Try another search.'; return; }
+    msg.classList.add('hidden');
+    d.results.forEach((t) => {
+      const li = document.createElement('li');
+      li.className = 'res';
+      li.innerHTML = `<img alt="" src="${esc(t.image || '')}"><span class="t">${esc(t.name)}<div class="by">${esc(t.artist || '')} · ${fmt(t.duration)}</div></span><button>Add</button>`;
+      const btn = li.querySelector('button');
+      btn.onclick = async () => {
+        btn.disabled = true; btn.textContent = 'Added';
+        await fetch(`/api/add-remote?room=${room}&by=${encodeURIComponent(myName)}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: t.name, artist: t.artist, url: t.url }),
+        });
+      };
+      ul.appendChild(li);
+    });
+  } catch { msg.textContent = 'Search failed. Try again in a moment.'; }
+};
+
+// ---- upload ----
+async function uploadFiles(files) {
+  const list = [...files].filter((f) => /\.(mp3|m4a|aac|wav|ogg|opus|flac|webm)$/i.test(f.name));
+  if (!list.length) return toast('Please choose audio files');
+  for (const f of list) {
+    if (f.size > 60 * 1024 * 1024) { toast(f.name + ' is over 60 MB'); continue; }
+    $('status').textContent = `Uploading ${f.name}…`;
+    try {
+      const r = await fetch(`/api/upload?room=${room}&name=${encodeURIComponent(f.name)}&by=${encodeURIComponent(myName)}`, { method: 'POST', body: f, headers: { 'Content-Type': 'application/octet-stream' } });
+      if (!r.ok) throw new Error((await r.json()).error || 'failed');
+    } catch (err) { toast('Upload failed: ' + err.message); }
+  }
+  $('status').textContent = '';
+}
+$('file').onchange = (e) => { uploadFiles(e.target.files); e.target.value = ''; };
+const drop = $('drop');
+['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', (e) => uploadFiles(e.dataTransfer.files));
+
+// auto-join if the link has a room code and a saved name
+if (hashCode && localStorage.getItem('duet-name')) enter(hashCode);
+</script>
+</body>
+</html>

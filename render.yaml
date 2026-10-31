@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: duet
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: JAMENDO_CLIENT_ID
+        sync: false
