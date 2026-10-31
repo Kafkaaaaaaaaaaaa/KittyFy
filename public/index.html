@@ -383,7 +383,7 @@ $('searchForm').onsubmit = async (e) => {
       msg.innerHTML = 'Music search needs a free Jamendo key. Get one at <b>devportal.jamendo.com</b>, then start the server with <code>JAMENDO_CLIENT_ID=your_key npm start</code>. Uploading your own files still works.';
       return;
     }
-    if (!r.ok) throw new Error();
+    if (!r.ok) { msg.textContent = 'Search failed' + (d.detail ? ': ' + d.detail : '. Try again in a moment.'); return; }
     if (!d.results.length) { msg.textContent = 'Nothing found. Try another search.'; return; }
     msg.classList.add('hidden');
     d.results.forEach((t) => {

@@ -91,7 +91,7 @@ app.post('/api/upload', express.raw({ type: () => true, limit: MAX_BYTES }), (re
 
 // ---- Free music search (Jamendo, Creative Commons) ----
 // Get a free client id at https://devportal.jamendo.com and start with JAMENDO_CLIENT_ID=xxxx
-const JAMENDO_ID = process.env.JAMENDO_CLIENT_ID || '';
+const JAMENDO_ID = (process.env.JAMENDO_CLIENT_ID || '').trim();
 
 app.get('/api/search', async (req, res) => {
   if (!JAMENDO_ID) return res.status(503).json({ error: 'no_key' });
@@ -101,9 +101,22 @@ app.get('/api/search', async (req, res) => {
     const u = new URL('https://api.jamendo.com/v3.0/tracks/');
     u.search = new URLSearchParams({
       client_id: JAMENDO_ID, format: 'json', limit: '20', search: q,
-      audioformat: 'mp32', include: 'musicinfo', imagesize: '100',
+      audioformat: 'mp32', imagesize: '100',
     });
-    const data = await fetch(u, { signal: AbortSignal.timeout(8000) }).then((r) => r.json());
+    const resp = await fetch(u, { signal: AbortSignal.timeout(8000) });
+    const text = await resp.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = null; }
+    if (!data) {
+      console.error('Jamendo non-JSON reply', resp.status, text.slice(0, 200));
+      return res.status(502).json({ error: 'jamendo', detail: `Jamendo replied with HTTP ${resp.status}` });
+    }
+    if (data.headers && data.headers.status && data.headers.status !== 'success') {
+      const detail = data.headers.error_message || data.headers.warnings || data.headers.status;
+      console.error('Jamendo error', JSON.stringify(data.headers));
+      return res.status(502).json({ error: 'jamendo', detail: String(detail).slice(0, 200) });
+    }
+    console.log(`Jamendo search "${q}": ${(data.results || []).length} results`);
     const results = (data.results || [])
       .filter((t) => t.audio)
       .map((t) => ({ id: t.id, name: t.name, artist: t.artist_name, image: t.image, duration: t.duration, url: t.audio }));
